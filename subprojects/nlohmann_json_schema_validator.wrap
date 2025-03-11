@@ -1,0 +1,8 @@
+[wrap-git]
+url = https://github.com/pboettch/json-schema-validator.git
+revision = main
+method = cmake
+depth = 1
+
+[provide]
+nlohmann_json_schema_validator = nlohmann_json_schema_validator_dep

@@ -14,7 +14,9 @@ client_sources = files([
 ])
 
 dbus_dep = dependency('dbus-1')
+nlohmann_json = dependency('nlohmann_json')
+json_schema_validator_dep = dependency('nlohmann_json_schema_validator')
 
 # Исполняемые файл
-executable('server', server_sources, dependencies: dbus_dep)
-executable('client', client_sources, dependencies: dbus_dep)
+executable('server', server_sources, dependencies: [dbus_dep, nlohmann_json, json_schema_validator_dep])
+executable('client', client_sources, dependencies: [dbus_dep, nlohmann_json, json_schema_validator_dep])
