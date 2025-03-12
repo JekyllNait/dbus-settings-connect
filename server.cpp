@@ -1,4 +1,5 @@
 #include <dbus/dbus.h>
+#include <fstream>
 #include <iostream>
 
 #include "settings.h"
@@ -18,6 +19,20 @@ DBusHandlerResult handle_message(DBusConnection *connection, DBusMessage *messag
 
     mm.read_dbus(iter);
 
+    json j;
+    to_json(j, mm);
+    std::ofstream output("message.json");
+    output << std::setw(4) << j << std::endl;
+    output.close();
+
+    json j2;
+    std::ifstream input("message.json");
+    input >> j2;
+    input.close();
+
+    MyMessage mm2;
+    from_json(j2, mm2);
+
     // Выводим полученные значения
     std::cout << "Received message: "
               << "value1 = " << mm.value1 << ", "
@@ -26,6 +41,25 @@ DBusHandlerResult handle_message(DBusConnection *connection, DBusMessage *messag
               << "value4 = " << mm.value4 << ", "
               << "value5.value1 = " << mm.value5.value1 << ", "
               << "value5.value2 = " << mm.value5.value2 << std::endl;
+    std::cout << "Load message: "
+              << "value1 = " << mm2.value1 << ", "
+              << "value2 = " << mm2.value2 << ", "
+              << "value3 = " << mm2.value3 << ", "
+              << "value4 = " << mm2.value4 << ", "
+              << "value5.value1 = " << mm2.value5.value1 << ", "
+              << "value5.value2 = " << mm2.value5.value2 << std::endl;
+
+    // Создаем валидатор
+    nlohmann::json_schema::json_validator validator;
+    validator.set_root_schema(MyMessage::json_schema);
+
+    // Проверяем JSON на соответствие схеме
+    try {
+      validator.validate(j2);
+      std::cout << "JSON is valid according to the schema." << std::endl;
+    } catch (const std::exception &e) {
+      std::cerr << "JSON validation failed: " << e.what() << std::endl;
+    }
 
     // Отправляем ответ
     DBusMessage *reply = dbus_message_new_method_return(message);
