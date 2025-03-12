@@ -4,16 +4,27 @@ json MyMessage::json_schema = R"(
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
+    "definitions": {
+      "integer_parameter": {
+        "type": "integer"
+      },
+      "float_parameter": {
+        "type": "number"
+      },
+      "string_parameter": {
+        "type": "string"
+      }
+    },
     "properties": {
-        "value1": {"type": "integer"},
-        "value2": {"type": "integer"},
-        "value3": {"type": "number"},
-        "value4": {"type": "string"},
+        "value1": {"$ref": "#/definitions/integer_parameter"},
+        "value2": {"$ref": "#/definitions/integer_parameter"},
+        "value3": {"$ref": "#/definitions/float_parameter"},
+        "value4": {"$ref": "#/definitions/string_parameter"},
         "value5": {
             "type": "object",
             "properties": {
-                "value1": {"type": "integer"},
-                "value2": {"type": "number"}
+                "value1": {"$ref": "#/definitions/integer_parameter"},
+                "value2": {"$ref": "#/definitions/float_parameter"}
             },
             "required": ["value1", "value2"]
         }
