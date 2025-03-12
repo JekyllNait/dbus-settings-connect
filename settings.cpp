@@ -35,6 +35,42 @@ json MyMessage::json_schema = R"(
 }
 )"_json;
 
+void ParameterPack::write_dbus(DBusMessageIter &iter) const {
+  DBusMessageIter struct_iter;
+  // Открываем контейнер STRUCT
+  dbus_message_iter_open_container(&iter, DBUS_TYPE_STRUCT, nullptr, &struct_iter);
+
+  write_dbus_elems(struct_iter);
+
+  // Закрываем контейнер STRUCT
+  dbus_message_iter_close_container(&iter, &struct_iter);
+}
+
+void ParameterPack::write_dbus_elems(DBusMessageIter &iter) const {
+  for (const auto &field : mFields) {
+    field.write(iter);
+  }
+}
+
+void ParameterPack::read_dbus(DBusMessageIter &iter) {
+  // Открываем контейнер STRUCT
+  /// @todo обрабатывать ошибку
+  if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRUCT) {
+    return;
+  }
+
+  DBusMessageIter struct_iter;
+  dbus_message_iter_recurse(&iter, &struct_iter);
+
+  read_dbus_elems(struct_iter);
+}
+
+void ParameterPack::read_dbus_elems(DBusMessageIter &iter) {
+  for (auto &field : mFields) {
+    field.read(iter);
+  }
+}
+
 template <class T> SettingsParameter<T>::SettingsParameter() {
   if constexpr (std::is_same_v<T, int>) {
     mDBusParameterType = DBUS_TYPE_INT32;
@@ -86,40 +122,11 @@ template <class T> SettingsParameter<T>::Type &SettingsParameter<T>::get_mutable
 
 template <class T> SettingsParameter<T> &SettingsParameter<T>::operator=(const Type &newValue) {
   set(newValue);
-
   return *this;
 }
 
 template <class T> SettingsParameter<T>::operator Type() const {
   return get();
-}
-
-void MyInnerMessage::write_dbus(DBusMessageIter &iter) const {
-  DBusMessageIter struct_iter;
-  // Открываем контейнер STRUCT
-  dbus_message_iter_open_container(&iter, DBUS_TYPE_STRUCT, nullptr, &struct_iter);
-
-  // Добавляем поля структуры
-  value1.write_dbus(struct_iter);
-  value2.write_dbus(struct_iter);
-
-  // Закрываем контейнер STRUCT
-  dbus_message_iter_close_container(&iter, &struct_iter);
-}
-
-void MyInnerMessage::read_dbus(DBusMessageIter &iter) {
-  // Открываем контейнер STRUCT
-  /// @todo обрабатывать ошибку
-  if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRUCT) {
-    return;
-  }
-
-  DBusMessageIter struct_iter;
-  dbus_message_iter_recurse(&iter, &struct_iter);
-
-  // Извлекаем поля структуры
-  value1.read_dbus(struct_iter);
-  value2.read_dbus(struct_iter);
 }
 
 MyInnerMessage::MyInnerMessage() {
@@ -133,40 +140,6 @@ MyInnerMessage &MyInnerMessage::get_mutable() {
 
 MyInnerMessage MyInnerMessage::get() const {
   return *this;
-}
-
-void MyMessage::write_dbus(DBusMessageIter &iter) const {
-  DBusMessageIter struct_iter;
-  // Открываем контейнер STRUCT
-  dbus_message_iter_open_container(&iter, DBUS_TYPE_STRUCT, nullptr, &struct_iter);
-
-  // Добавляем поля структуры
-  value1.write_dbus(struct_iter);
-  value2.write_dbus(struct_iter);
-  value3.write_dbus(struct_iter);
-  value4.write_dbus(struct_iter);
-  value5.write_dbus(struct_iter);
-
-  // Закрываем контейнер STRUCT
-  dbus_message_iter_close_container(&iter, &struct_iter);
-}
-
-void MyMessage::read_dbus(DBusMessageIter &iter) {
-  // Открываем контейнер STRUCT
-  /// @todo обрабатывать ошибку
-  if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRUCT) {
-    return;
-  }
-
-  DBusMessageIter struct_iter;
-  dbus_message_iter_recurse(&iter, &struct_iter);
-
-  // Извлекаем поля структуры
-  value1.read_dbus(struct_iter);
-  value2.read_dbus(struct_iter);
-  value3.read_dbus(struct_iter);
-  value4.read_dbus(struct_iter);
-  value5.read_dbus(struct_iter);
 }
 
 MyMessage::MyMessage() {
