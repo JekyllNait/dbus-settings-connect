@@ -38,14 +38,14 @@ DBusHandlerResult handle_message(DBusConnection *connection, DBusMessage *messag
               << "value1 = " << mm.value1 << ", "
               << "value2 = " << mm.value2 << ", "
               << "value3 = " << mm.value3 << ", "
-              << "value4 = " << mm.value4 << ", "
+              << "value4 = " << mm.value4.get() << ", "
               << "value5.value1 = " << mm.value5.value1 << ", "
               << "value5.value2 = " << mm.value5.value2 << std::endl;
     std::cout << "Load message: "
               << "value1 = " << mm2.value1 << ", "
               << "value2 = " << mm2.value2 << ", "
               << "value3 = " << mm2.value3 << ", "
-              << "value4 = " << mm2.value4 << ", "
+              << "value4 = " << mm2.value4.get() << ", "
               << "value5.value1 = " << mm2.value5.value1 << ", "
               << "value5.value2 = " << mm2.value5.value2 << std::endl;
 

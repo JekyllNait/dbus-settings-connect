@@ -1,37 +1,98 @@
 #include "settings.h"
 
+#include <type_traits>
+
 json MyMessage::json_schema = R"(
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "type": "object",
-    "definitions": {
-      "integer_parameter": {
-        "type": "integer"
-      },
-      "float_parameter": {
-        "type": "number"
-      },
-      "string_parameter": {
-        "type": "string"
-      }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "definitions": {
+    "integer_parameter": {
+      "type": "integer"
     },
-    "properties": {
+    "float_parameter": {
+      "type": "number"
+    },
+    "string_parameter": {
+      "type": "string"
+    }
+  },
+  "properties": {
+    "value1": {"$ref": "#/definitions/integer_parameter"},
+    "value2": {"$ref": "#/definitions/integer_parameter"},
+    "value3": {"$ref": "#/definitions/float_parameter"},
+    "value4": {"$ref": "#/definitions/string_parameter"},
+    "value5": {
+      "type": "object",
+      "properties": {
         "value1": {"$ref": "#/definitions/integer_parameter"},
-        "value2": {"$ref": "#/definitions/integer_parameter"},
-        "value3": {"$ref": "#/definitions/float_parameter"},
-        "value4": {"$ref": "#/definitions/string_parameter"},
-        "value5": {
-            "type": "object",
-            "properties": {
-                "value1": {"$ref": "#/definitions/integer_parameter"},
-                "value2": {"$ref": "#/definitions/float_parameter"}
-            },
-            "required": ["value1", "value2"]
-        }
-    },
-    "required": ["value1", "value2", "value3", "value4", "value5"]
+        "value2": {"$ref": "#/definitions/float_parameter"}
+      },
+      "required": ["value1", "value2"]
+    }
+  },
+  "required": ["value1", "value2", "value3", "value4", "value5"]
 }
 )"_json;
+
+template <class T> SettingsParameter<T>::SettingsParameter() {
+  if constexpr (std::is_same_v<T, int>) {
+    mDBusParameterType = DBUS_TYPE_INT32;
+  } else if constexpr (std::is_same_v<T, double>) {
+    mDBusParameterType = DBUS_TYPE_DOUBLE;
+  } else if constexpr (std::is_same_v<T, std::string>) {
+    mDBusParameterType = DBUS_TYPE_STRING;
+  } else {
+    /// @todo invalid type
+    static_assert(false);
+    mDBusParameterType = DBUS_TYPE_INT32;
+  }
+}
+
+template <class T> void SettingsParameter<T>::write_dbus(DBusMessageIter &struct_iter) const {
+  // Добавляем поле структуры
+  if constexpr (std::is_same_v<T, std::string>) {
+    const char *value_cstr = mValue.c_str();
+    dbus_message_iter_append_basic(&struct_iter, mDBusParameterType, &value_cstr);
+  } else {
+    dbus_message_iter_append_basic(&struct_iter, mDBusParameterType, &mValue);
+  }
+}
+
+template <class T> void SettingsParameter<T>::read_dbus(DBusMessageIter &struct_iter) {
+  if constexpr (std::is_same_v<T, std::string>) {
+    const char *value_cstr;
+    // Преобразуем C-строку в std::string
+    dbus_message_iter_get_basic(&struct_iter, &value_cstr);
+    dbus_message_iter_next(&struct_iter);
+    mValue = std::string(value_cstr);
+  } else {
+    dbus_message_iter_get_basic(&struct_iter, &mValue);
+    dbus_message_iter_next(&struct_iter);
+  }
+}
+
+template <class T> SettingsParameter<T>::Type SettingsParameter<T>::get() const {
+  return mValue;
+}
+
+template <class T> void SettingsParameter<T>::set(const Type &newValue) {
+  mValue = newValue;
+}
+
+template <class T> SettingsParameter<T>::Type &SettingsParameter<T>::get_mutable() {
+  return mValue;
+}
+
+template <class T> SettingsParameter<T> &SettingsParameter<T>::operator=(const Type &newValue) {
+  set(newValue);
+
+  return *this;
+}
+
+template <class T> SettingsParameter<T>::operator Type() const {
+  return get();
+}
 
 void MyInnerMessage::write_dbus(DBusMessageIter &iter) const {
   DBusMessageIter struct_iter;
@@ -39,8 +100,8 @@ void MyInnerMessage::write_dbus(DBusMessageIter &iter) const {
   dbus_message_iter_open_container(&iter, DBUS_TYPE_STRUCT, nullptr, &struct_iter);
 
   // Добавляем поля структуры
-  dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_INT32, &value1);
-  dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_DOUBLE, &value2);
+  value1.write_dbus(struct_iter);
+  value2.write_dbus(struct_iter);
 
   // Закрываем контейнер STRUCT
   dbus_message_iter_close_container(&iter, &struct_iter);
@@ -57,19 +118,21 @@ void MyInnerMessage::read_dbus(DBusMessageIter &iter) {
   dbus_message_iter_recurse(&iter, &struct_iter);
 
   // Извлекаем поля структуры
-  dbus_message_iter_get_basic(&struct_iter, &value1);
-  dbus_message_iter_next(&struct_iter);
-  dbus_message_iter_get_basic(&struct_iter, &value2);
-  dbus_message_iter_next(&struct_iter);
+  value1.read_dbus(struct_iter);
+  value2.read_dbus(struct_iter);
 }
 
-void to_json(json &j, const MyInnerMessage &msg) {
-  j = json{{"value1", msg.value1}, {"value2", msg.value2}};
+MyInnerMessage::MyInnerMessage() {
+  register_field(value1);
+  register_field(value2);
 }
 
-void from_json(const json &j, MyInnerMessage &msg) {
-  j.at("value1").get_to(msg.value1);
-  j.at("value2").get_to(msg.value2);
+MyInnerMessage &MyInnerMessage::get_mutable() {
+  return *this;
+}
+
+MyInnerMessage MyInnerMessage::get() const {
+  return *this;
 }
 
 void MyMessage::write_dbus(DBusMessageIter &iter) const {
@@ -77,14 +140,11 @@ void MyMessage::write_dbus(DBusMessageIter &iter) const {
   // Открываем контейнер STRUCT
   dbus_message_iter_open_container(&iter, DBUS_TYPE_STRUCT, nullptr, &struct_iter);
 
-  const char *value4_cstr = value4.c_str();
-
   // Добавляем поля структуры
-  dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_INT32, &value1);
-  dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_INT32, &value2);
-  dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_DOUBLE, &value3);
-  dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_STRING, &value4_cstr);
-
+  value1.write_dbus(struct_iter);
+  value2.write_dbus(struct_iter);
+  value3.write_dbus(struct_iter);
+  value4.write_dbus(struct_iter);
   value5.write_dbus(struct_iter);
 
   // Закрываем контейнер STRUCT
@@ -101,36 +161,55 @@ void MyMessage::read_dbus(DBusMessageIter &iter) {
   DBusMessageIter struct_iter;
   dbus_message_iter_recurse(&iter, &struct_iter);
 
-  const char *value4_cstr;
-
   // Извлекаем поля структуры
-  dbus_message_iter_get_basic(&struct_iter, &value1);
-  dbus_message_iter_next(&struct_iter);
-  dbus_message_iter_get_basic(&struct_iter, &value2);
-  dbus_message_iter_next(&struct_iter);
-  dbus_message_iter_get_basic(&struct_iter, &value3);
-  dbus_message_iter_next(&struct_iter);
-  dbus_message_iter_get_basic(&struct_iter, &value4_cstr);
-  dbus_message_iter_next(&struct_iter);
-
-  // Преобразуем C-строку в std::string
-  value4 = std::string(value4_cstr);
-
+  value1.read_dbus(struct_iter);
+  value2.read_dbus(struct_iter);
+  value3.read_dbus(struct_iter);
+  value4.read_dbus(struct_iter);
   value5.read_dbus(struct_iter);
 }
 
+MyMessage::MyMessage() {
+  register_field(value1);
+  register_field(value2);
+  register_field(value3);
+  register_field(value4);
+  register_field(value5);
+}
+
+MyMessage &MyMessage::get_mutable() {
+  return *this;
+}
+
+MyMessage MyMessage::get() const {
+  return *this;
+}
+
+void to_json(json &j, const MyInnerMessage &msg) {
+  j = json{{"value1", msg.value1.get()}, {"value2", msg.value2.get()}};
+}
+
+void from_json(const json &j, MyInnerMessage &msg) {
+  j.at("value1").get_to(msg.value1.get_mutable());
+  j.at("value2").get_to(msg.value2.get_mutable());
+}
+
 void to_json(json &j, const MyMessage &msg) {
-  j = json{{"value1", msg.value1},
-           {"value2", msg.value2},
-           {"value3", msg.value3},
-           {"value4", msg.value4},
-           {"value5", msg.value5}};
+  j = json{{"value1", msg.value1.get()},
+           {"value2", msg.value2.get()},
+           {"value3", msg.value3.get()},
+           {"value4", msg.value4.get()},
+           {"value5", msg.value5.get()}};
 }
 
 void from_json(const json &j, MyMessage &msg) {
-  j.at("value1").get_to(msg.value1);
-  j.at("value2").get_to(msg.value2);
-  j.at("value3").get_to(msg.value3);
-  j.at("value4").get_to(msg.value4);
-  j.at("value5").get_to(msg.value5);
+  j.at("value1").get_to(msg.value1.get_mutable());
+  j.at("value2").get_to(msg.value2.get_mutable());
+  j.at("value3").get_to(msg.value3.get_mutable());
+  j.at("value4").get_to(msg.value4.get_mutable());
+  j.at("value5").get_to(msg.value5.get_mutable());
 }
+
+template class SettingsParameter<int>;
+template class SettingsParameter<double>;
+template class SettingsParameter<std::string>;
