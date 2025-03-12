@@ -2,3 +2,4 @@
 *.exe
 server
 client
+*.json
