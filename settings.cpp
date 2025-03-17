@@ -1,7 +1,5 @@
 #include "settings.h"
 
-#include <type_traits>
-
 json MyMessage::json_schema = R"(
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -78,6 +76,8 @@ template <class T> SettingsParameter<T>::SettingsParameter() {
     mDBusParameterType = DBUS_TYPE_DOUBLE;
   } else if constexpr (std::is_same_v<T, std::string>) {
     mDBusParameterType = DBUS_TYPE_STRING;
+  } else if constexpr (std::is_same_v<T, MessageHandlerBase::MessageType>) {
+    mDBusParameterType = DBUS_TYPE_INT32;
   } else {
     /// @todo invalid type
     static_assert(false);
@@ -158,31 +158,23 @@ MyMessage MyMessage::get() const {
   return *this;
 }
 
-void to_json(json &j, const MyInnerMessage &msg) {
-  j = json{{"value1", msg.value1.get()}, {"value2", msg.value2.get()}};
+MessageHandlerBase::MessageHandlerBase() {
+  register_field(messageType);
 }
 
-void from_json(const json &j, MyInnerMessage &msg) {
-  j.at("value1").get_to(msg.value1.get_mutable());
-  j.at("value2").get_to(msg.value2.get_mutable());
+template <class S> MessageHeader<S>::MessageHeader() {
+  if constexpr (std::is_same_v<S, MyMessage>) {
+    messageType = MessageType::OUTER;
+  }
+  if constexpr (std::is_same_v<S, MyInnerMessage>) {
+    messageType = MessageType::INNER;
+  }
 }
 
-void to_json(json &j, const MyMessage &msg) {
-  j = json{{"value1", msg.value1.get()},
-           {"value2", msg.value2.get()},
-           {"value3", msg.value3.get()},
-           {"value4", msg.value4.get()},
-           {"value5", msg.value5.get()}};
-}
-
-void from_json(const json &j, MyMessage &msg) {
-  j.at("value1").get_to(msg.value1.get_mutable());
-  j.at("value2").get_to(msg.value2.get_mutable());
-  j.at("value3").get_to(msg.value3.get_mutable());
-  j.at("value4").get_to(msg.value4.get_mutable());
-  j.at("value5").get_to(msg.value5.get_mutable());
-}
+template class MessageHeader<MyMessage>;
+template class MessageHeader<MyInnerMessage>;
 
 template class SettingsParameter<int>;
 template class SettingsParameter<double>;
 template class SettingsParameter<std::string>;
+template class SettingsParameter<MessageHandlerBase::MessageType>;

@@ -3,7 +3,7 @@
 
 #include "settings.h"
 
-void send_message(DBusConnection *connection, const MyMessage &msg) {
+template <class T> void send_message(DBusConnection *connection, const T &msg) {
   DBusMessage *message;
   DBusPendingCall *pending;
   DBusMessageIter iter;
@@ -12,7 +12,7 @@ void send_message(DBusConnection *connection, const MyMessage &msg) {
   message = dbus_message_new_method_call("com.example.MyService", "/com/example/MyObject",
                                          "com.example.MyInterface", "SendMyMessage");
 
-  if (!message) {
+  if (not message) {
     std::cerr << "Failed to create DBus message" << std::endl;
     return;
   }
@@ -20,12 +20,14 @@ void send_message(DBusConnection *connection, const MyMessage &msg) {
   // Инициализируем итератор для добавления аргументов
   dbus_message_iter_init_append(message, &iter);
 
+  MessageHeader<T> header;
+  header.write_dbus(iter);
   msg.write_dbus(iter);
 
   // Отправляем сообщение и ждем ответа
   dbus_connection_send_with_reply(connection, message, &pending, -1);
 
-  if (!pending) {
+  if (not pending) {
     std::cerr << "Failed to send DBus message" << std::endl;
     dbus_message_unref(message);
     return;
@@ -39,7 +41,7 @@ void send_message(DBusConnection *connection, const MyMessage &msg) {
 
   // Получаем ответ
   DBusMessage *reply = dbus_pending_call_steal_reply(pending);
-  if (!reply) {
+  if (not reply) {
     std::cerr << "Failed to get DBus reply" << std::endl;
     dbus_pending_call_unref(pending);
     return;
@@ -50,7 +52,7 @@ void send_message(DBusConnection *connection, const MyMessage &msg) {
   dbus_error_init(&error);
   const char *response;
 
-  if (!dbus_message_get_args(reply, &error, DBUS_TYPE_STRING, &response, DBUS_TYPE_INVALID)) {
+  if (not dbus_message_get_args(reply, &error, DBUS_TYPE_STRING, &response, DBUS_TYPE_INVALID)) {
     std::cerr << "Failed to parse reply: " << error.message << std::endl;
     dbus_error_free(&error);
   } else {
@@ -84,8 +86,17 @@ int main() {
   msg.value4 = "testStringMessage";
   msg.value5.value1 = 42;
   msg.value5.value2 = 43;
+  std::string input;
+  std::cout << "Введите тип сообщения (full/inner):\n";
+  std::cin >> input;
 
-  send_message(connection, msg);
+  if (input == "full") {
+    send_message(connection, msg);
+  } else if (input == "inner") {
+    send_message(connection, msg.value5);
+  } else {
+    std::cerr << "Неверный тип сообщения\n";
+  }
 
   dbus_connection_unref(connection);
   return 0;

@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <string>
+#include <tuple>
+#include <variant>
 #include <vector>
 
 #include <dbus/dbus.h>
@@ -68,6 +70,10 @@ public:
 
   MyInnerMessage &get_mutable();
   MyInnerMessage get() const;
+
+  static constexpr auto json_fields =
+      std::make_tuple(std::make_pair("value1", &MyInnerMessage::value1),
+                      std::make_pair("value2", &MyInnerMessage::value2));
 };
 
 class MyMessage : public ParameterPack {
@@ -85,12 +91,41 @@ public:
   MyMessage get() const;
 
   static json json_schema;
+
+  static constexpr auto json_fields = std::make_tuple(
+      std::make_pair("value1", &MyMessage::value1), std::make_pair("value2", &MyMessage::value2),
+      std::make_pair("value3", &MyMessage::value3), std::make_pair("value4", &MyMessage::value4),
+      std::make_pair("value5", &MyMessage::value5));
 };
 
-void to_json(json &j, const MyInnerMessage &msg);
-void from_json(const json &j, MyInnerMessage &msg);
-void to_json(json &j, const MyMessage &msg);
-void from_json(const json &j, MyMessage &msg);
+class MessageHandlerBase : public ParameterPack {
+public:
+  MessageHandlerBase();
+
+  enum class MessageType { INNER, OUTER };
+
+  SettingsParameter<MessageType> messageType;
+
+  using MessageVariant = std::variant<MyInnerMessage, MyMessage>;
+
+  static std::unordered_map<MessageType, MessageVariant> getMapper() {
+    return {{MessageType::INNER, MyInnerMessage{}}, {MessageType::OUTER, MyMessage{}}};
+  }
+
+  static MessageVariant getMessageType(MessageType type) {
+    auto mapper = getMapper();
+    auto it = mapper.find(type);
+    if (it != mapper.end()) {
+      return it->second;
+    }
+    throw std::runtime_error("Unknown MessageType");
+  }
+};
+
+template <class S> class MessageHeader : public MessageHandlerBase {
+public:
+  MessageHeader();
+};
 
 template <typename T> void ParameterPack::register_field(T &field) {
   mFields.push_back({[&field](DBusMessageIter &iter) { field.write_dbus(iter); },
