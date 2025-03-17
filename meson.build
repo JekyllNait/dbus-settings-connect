@@ -13,6 +13,16 @@ client_sources = files([
   'settings.cpp'
 ])
 
+tutorial_server_sources = files([
+  'tutorial/server.cpp',
+  'tutorial/dBusConnection.cpp'
+])
+
+tutorial_client_sources = files([
+  'tutorial/client.cpp',
+  'tutorial/dBusConnection.cpp'
+])
+
 dbus_dep = dependency('dbus-1')
 nlohmann_json = dependency('nlohmann_json')
 nlohmann_json_schema_validator_dep = dependency('nlohmann_json_schema_validator', method: 'cmake')
@@ -20,3 +30,5 @@ nlohmann_json_schema_validator_dep = dependency('nlohmann_json_schema_validator'
 # Исполняемые файлы
 executable('server', server_sources, dependencies: [dbus_dep, nlohmann_json, nlohmann_json_schema_validator_dep])
 executable('client', client_sources, dependencies: [dbus_dep, nlohmann_json, nlohmann_json_schema_validator_dep])
+executable('server-tutorial', tutorial_server_sources, dependencies: [dbus_dep])
+executable('client-tutorial', tutorial_client_sources, dependencies: [dbus_dep])
