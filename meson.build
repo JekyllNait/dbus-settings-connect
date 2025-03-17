@@ -23,6 +23,10 @@ tutorial_client_sources = files([
   'tutorial/dBusConnection.cpp'
 ])
 
+generator_sources = files([
+  'generator/main.cpp'
+])
+
 dbus_dep = dependency('dbus-1')
 nlohmann_json = dependency('nlohmann_json')
 nlohmann_json_schema_validator_dep = dependency('nlohmann_json_schema_validator', method: 'cmake')
@@ -32,3 +36,4 @@ executable('server', server_sources, dependencies: [dbus_dep, nlohmann_json, nlo
 executable('client', client_sources, dependencies: [dbus_dep, nlohmann_json, nlohmann_json_schema_validator_dep])
 executable('server-tutorial', tutorial_server_sources, dependencies: [dbus_dep])
 executable('client-tutorial', tutorial_client_sources, dependencies: [dbus_dep])
+executable('generator', generator_sources, dependencies: [nlohmann_json])
